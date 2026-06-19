@@ -4,7 +4,10 @@ Cada combinação é representada por uma tupla ordenada de inteiros.
 
 from itertools import combinations
 from math import comb
-from typing import Iterator
+from typing import TYPE_CHECKING, Iterator
+
+if TYPE_CHECKING:
+    import numpy as np
 
 # Universo do problema
 
@@ -47,6 +50,23 @@ def combinations_of_size(
 def count_formula(p: int, n: int = N) -> int:
     """Cardinalidade esperada |S_p| = C(n, p) = n! / (p! · (n-p)!)."""
     return comb(n, p)
+
+
+def materialize_matrix(p: int, universe: tuple[int, ...] = UNIVERSE) -> "np.ndarray":
+    """Materializa S_p como matriz booleana NumPy de forma (|S_p|, N).
+
+    Conveniência para os Programas de cobertura (2-5), que precisam do conjunto
+    inteiro em memória num formato vetorizável. A geração continua sendo feita
+    em streaming por ``combinations_of_size``; só a conversão final é em bloco.
+
+    Importa NumPy localmente para que o Programa 1 (que não usa matriz) não
+    dependa de NumPy.
+
+    ATENÇÃO de memória: ~25 bytes por combinação. |S_13| ≈ 5,2 M → ~130 MB.
+    """
+    from representations import combos_to_matrix
+
+    return combos_to_matrix(combinations_of_size(p, universe))
 
 
 def materialize(p: int) -> list[tuple[int, ...]]:
