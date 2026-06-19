@@ -51,5 +51,12 @@ def count_formula(p: int, n: int = N) -> int:
 
 def materialize(p: int) -> list[tuple[int, ...]]:
     """Materializa todas as combinações de tamanho ``p`` numa lista.
+
+    ATENÇÃO — uso restrito: esta função carrega TODAS as combinações na memória
+    de uma só vez. Para os tamanhos-alvo do trabalho (p = 11..15 sobre U), isso
+    é inviável: |S_13| = 5.200.300 tuplas custariam vários GB de RAM.
+
+    Destina-se APENAS a testes com ``p`` pequeno e/ou universos reduzidos. Para
+    os conjuntos do enunciado, use sempre ``combinations_of_size`` em streaming.
     """
     return list(combinations_of_size(p))

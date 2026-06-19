@@ -28,6 +28,12 @@ def main() -> None:
 
         # Percorre todo o conjunto contando (prova que a geração é íntegra),
         # guardando apenas as primeiras amostras e a última combinação.
+        #
+        # IMPORTANTE: 'islice' consome as SAMPLES primeiras combinações de 'gen'
+        # e o 'for' abaixo prossegue de onde 'islice' parou — geradores mantêm a
+        # posição. A corretude depende de ser o MESMO objeto 'gen' nas duas
+        # etapas; não recrie o gerador entre elas, ou as amostras seriam
+        # recontadas.
         t0 = time.perf_counter()
         first_samples = list(islice(gen, SAMPLES))
         count = len(first_samples)
@@ -44,7 +50,7 @@ def main() -> None:
         for combo in first_samples:
             print(f"        {combo}")
         if last is not None and count > SAMPLES:
-            print(f"        ... ({count - SAMPLES - 1:,} combinações) ...")
+            print(f"        ... (mais {count - SAMPLES - 1:,} combinações até a última) ...")
             print(f"        {last}")
         print()
 
