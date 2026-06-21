@@ -45,7 +45,7 @@ from math import ceil
 
 from combinatorics import N, UNIVERSE, count_formula
 
-ANCHOR: int = N  # elemento-âncora fixo (25)
+ANCHOR: int = N  # elemento fixo (25)
 P: int = 12      # tamanho dos alvos cobertos por este programa
 COVER: int = 15  # tamanho das combinações de SB
 
@@ -87,7 +87,7 @@ def verify_cover(anchor: int = ANCHOR, full: bool = False) -> tuple[bool, str]:
     """
     if not full:
         return True, (
-            "Verificação estrutural: para todo Y ∈ S₁₂, Y ∪ {âncora, …} é um "
+            "Verificação estrutural: para todo Y ∈ S₁₂, Y ∪ {elemento Fixo, …} é um "
             "X ∈ SB que contém Y. Cobertura completa garantida."
         )
 
