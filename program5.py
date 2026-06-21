@@ -138,8 +138,7 @@ def main() -> None:
     print("  • A construção COBRE todo S₁₁ (correção garantida).")
     print("  • NÃO é mínima: está ~582× acima do limite inferior de Schönheim.")
     print("  • É o maior gap dos quatro: p=14 ótimo, p=13 ~33×, p=12 ~149×, p=11 ~582×.")
-    print("  • Estratégias para reduzir |SB| (guloso paralelo, ILP) são discutidas")
-    print("    na Análise de Complexidade e no Desafio Adicional.")
+    print("  • Estratégias para reduzir |SB| devem ser implementadas.")
 
 
 if __name__ == "__main__":
