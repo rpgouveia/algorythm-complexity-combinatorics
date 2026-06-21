@@ -129,7 +129,7 @@ def main() -> None:
 
     print("Observações:")
     print("  • A construção COBRE todo S₁₂ (correção garantida).")
-    print("  • NÃO é mínima: está ~149× acima do limite inferior de Schönheim.")
+    print("  • NÃO é mínima: está ~149 × acima do limite inferior de Schönheim.")
     print("  • O gap cresce conforme p diminui (p=14 ótimo, p=13 ~33×, p=12 ~149×).")
     print("  • A versão guloso+paralela deve atingir |SB| muito menor, ao custo de horas.")
 
