@@ -79,7 +79,7 @@ def verify_cover(anchor: int = ANCHOR, full: bool = False) -> tuple[bool, str]:
     if not full:
         # Verificação estrutural: a prova garante cobertura para todo Y.
         return True, (
-            "Verificação estrutural: para todo Y ∈ S₁₄, Y ∪ {âncora} (ou o "
+            "Verificação estrutural: para todo Y ∈ S₁₄, Y ∪ {elemento Fixo} (ou o "
             "próprio Y) é um X ∈ SB que contém Y. Cobertura completa garantida."
         )
 
@@ -107,7 +107,7 @@ def main() -> None:
     print(f"Ótimo (provado por ILP):     {size:,} \n")
 
     # Amostras da solução
-    print("Amostras de SB (primeiras combinações de 15 contendo a âncora):")
+    print("Amostras de SB (primeiras combinações de 15 contendo o elemento fixo):")
     for combo in islice(sb_anchor(), 5):
         print(f"    {combo}")
     print()
