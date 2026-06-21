@@ -5,28 +5,28 @@ alvo não-coberto + avaliação vetorizada com NumPy + PARALELISMO (multiprocess
 
 Resumo das otimizações aplicadas sobre a versão original (coverage_greedy.py):
 
-  (1) BITMASK em vez de matriz booleana (N, 25) por linha.
-      Cada combinação de 25 elementos cabe num único uint32. Isso reduz a
-      avaliação de cobertura de uma operação O(N) por par (alvo, candidato)
-      para uma operação O(1) (AND + comparação), e reduz a memória de
-      ~25 bytes/alvo para 4 bytes/alvo.
+    (1) BITMASK em vez de matriz booleana (N, 25) por linha.
+        Cada combinação de 25 elementos cabe num único uint32. Isso reduz a
+        avaliação de cobertura de uma operação O(N) por par (alvo, candidato)
+        para uma operação O(1) (AND + comparação), e reduz a memória de
+        ~25 bytes/alvo para 4 bytes/alvo.
 
-  (2) GERAÇÃO DE CANDIDATOS A PARTIR DO ALVO NÃO-COBERTO.
-      Em vez de testar os C(25,15)=3.268.760 candidatos possíveis a cada
-      iteração, geram-se apenas os C(25-12,15-12)=C(13,3)=286 candidatos que
-      contêm um alvo Y fixado. Redução de ~11.400x no espaço de busca por
-      iteração (ver análise no enunciado, seção de complexidade).
+    (2) GERAÇÃO DE CANDIDATOS A PARTIR DO ALVO NÃO-COBERTO.
+        Em vez de testar os C(25,15)=3.268.760 candidatos possíveis a cada
+        iteração, geram-se apenas os C(25-12,15-12)=C(13,3)=286 candidatos que
+        contêm um alvo Y fixado. Redução de ~11.400x no espaço de busca por
+        iteração (ver análise no enunciado, seção de complexidade).
 
-  (3) AVALIAÇÃO VETORIZADA com NumPy (broadcasting sobre uint32), evitando
-      laço Python alvo-a-alvo: o teste "alvo ⊆ candidato" é feito para TODOS
-      os alvos de uma vez via (targets_bitmask & ~cand_mask) == 0.
+    (3) AVALIAÇÃO VETORIZADA com NumPy (broadcasting sobre uint32), evitando
+        laço Python alvo-a-alvo: o teste "alvo ⊆ candidato" é feito para TODOS
+        os alvos de uma vez via (targets_bitmask & ~cand_mask) == 0.
 
-  (4) PARALELISMO (multiprocessing) na avaliação dos candidatos de cada
-      iteração. Os ~286 candidatos são divididos em chunks entre os processos
-      do pool; cada processo avalia seu chunk contra o array de alvos NÃO-
-      COBERTOS (compartilhado via multiprocessing.shared_memory, para não
-      serializar ~5,2M elementos a cada iteração) e devolve o melhor candidato
-      do seu chunk. O processo principal escolhe o melhor entre os vencedores.
+    (4) PARALELISMO (multiprocessing) na avaliação dos candidatos de cada
+        iteração. Os ~286 candidatos são divididos em chunks entre os processos
+        do pool; cada processo avalia seu chunk contra o array de alvos NÃO-
+        COBERTOS (compartilhado via multiprocessing.shared_memory, para não
+        serializar ~5,2M elementos a cada iteração) e devolve o melhor candidato
+        do seu chunk. O processo principal escolhe o melhor entre os vencedores.
 
 POR QUE shared_memory (e não passar o array normalmente):
     Se o array de alvos fosse passado como argumento comum para cada chamada
@@ -138,6 +138,7 @@ def greedy_cover_bitmask_paralelo(
     log_every: int = 100,
     max_iters: int | None = None,
     n_workers: int | None = None,
+    log_path: str | None = None,
 ) -> GreedyResult:
     """Guloso com bitmask + paralelismo para cobrir S_p com blocos de tamanho k.
 
@@ -275,10 +276,13 @@ def _avaliar_chunk_dynamic(cand_masks_chunk: np.ndarray, m: int) -> tuple[int, i
     return melhor_gain, melhor_mask
 
 
+#P = 14
+#K = 15
+
 if __name__ == "__main__":
-    print("=== Amostra do Programa 4 real (n=25, k=15, p=12) — 5 iterações apenas ===")
+    print("=== Amostra do Programa 4 real (n=25, k=15, p=14) ===")
     print("(execução completa demoraria muito mais; isto é só para medir o ritmo)")
-    r2 = greedy_cover_bitmask_paralelo(p=12, k=15, verbose=True, log_every=1)
+    r2 = greedy_cover_bitmask_paralelo(p=14, k=15, verbose=True, log_every=1)
     print(f"\nApós {r2.size} passo(s): tempo {r2.elapsed_s:.1f}s decorridos")
     if r2.size:
         print(f"Ritmo médio: {r2.elapsed_s/r2.size:.2f}s/iteração")
