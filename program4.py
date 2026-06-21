@@ -108,7 +108,7 @@ def main() -> None:
     lb = schonheim_bound()                           # limite inferior de Schönheim
     cobre_por_bloco = count_formula(P, n=COVER)      # C(15,12)
 
-    print(f"Elemento-âncora fixo:        a = {ANCHOR}")
+    print(f"Elemento fixo:        a = {ANCHOR}")
     print(f"Alvos a cobrir |S₁₂|:        {expected_targets:,}")
     print(f"Tamanho da solução |SB|:     {size:,}   (= C(24,14))")
     print(f"Cada X de 15 cobre:          {cobre_por_bloco:,} alvos de 12  (= C(15,12))")
