@@ -1,13 +1,13 @@
 """
 PROGRAMA 3 — Cobertura de Combinações de 13 Elementos.
 
-Objetivo (enunciado): determinar SB₁₅,₁₃ ⊆ S₁₅ tal que toda combinação de 13
+Objetivo: determinar SB₁₅,₁₃ ⊆ S₁₅ tal que toda combinação de 13
 elementos (Y ∈ S₁₃) esteja contida em pelo menos uma combinação de 15
 elementos (X ∈ SB₁₅,₁₃):
 
         ∀ Y ∈ S₁₃  ∃ X ∈ SB₁₅,₁₃  tal que  Y ⊆ X
 
-ESTRATÉGIA — Construção direta por elemento fixo (a mesma do Programa 2):
+ESTRATÉGIA — Construção direta por elemento fixo:
     SB = { X ∈ S₁₅ | a ∈ X }, para um elemento fixo `a` (usamos a = 25).
     Ou seja, todas as combinações de 15 que contêm o elemento `a`.
 
@@ -20,7 +20,7 @@ POR QUE COBRE TODO S₁₃ (prova):
     Em ambos os casos existe X ∈ SB com Y ⊆ X. ∎
     (Validado também por força bruta em universos reduzidos para p = cover−2.)
 
-SOBRE A OTIMALIDADE — DIFERENÇA CRUCIAL EM RELAÇÃO AO PROGRAMA 2:
+SOBRE A OTIMALIDADE — DIFERENÇA EM RELAÇÃO AO PROGRAMA 2:
     No Programa 2 (p = 14 = cover−1) a construção por elemento fixo é PROVADAMENTE
     ÓTIMA. Aqui (p = 13 = cover−2) ISSO NÃO VALE: a construção é uma cobertura
     VÁLIDA, mas NÃO é mínima.
@@ -37,12 +37,12 @@ SOBRE A OTIMALIDADE — DIFERENÇA CRUCIAL EM RELAÇÃO AO PROGRAMA 2:
     (guloso/ILP/metaheurística), discutidos como ALTERNATIVAS e como trabalho
     futuro (ver `program4` paralelo e a seção de Análise de Complexidade).
 
-    OPÇÃO ADOTADA PELO GRUPO: uma construção uniforme, simples e provadamente
-    correta para todos os programas de cobertura, fornecendo um LIMITANTE
-    SUPERIOR válido — e sendo ótima em p = 14. Priorizamos simplicidade de
-    implementação e de defesa, declarando com transparência o gap em p ≤ 13.
+    RAZÕES COMO OPÇÃO ADOTADA PELO GRUPO: uma construção uniforme, simples e 
+    provadamente correta para todos os programas de cobertura, fornecendo um 
+    LIMITANTE SUPERIOR válido — e sendo ótima em p = 14. Priorizamos simplicidade
+    de implementação e de defesa, declarando com transparência o gap em p ≤ 13.
 
-CLASSE / VERIFICAÇÃO (para a defesa):
+CLASSE / VERIFICAÇÃO:
     O problema de decisão associado (existe SB de tamanho ≤ k?) é Set Cover,
     NP-Completo. A construção por elemento fixo é uma solução direta (sem busca)
     que dá um limitante superior; a verificação de cobertura é simples e feita
