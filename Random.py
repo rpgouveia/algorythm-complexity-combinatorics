@@ -14,6 +14,8 @@ boas soluções em tempo recorde.
 """
 
 import time
+import os
+import concurrent.futures
 from dataclasses import dataclass, field
 from itertools import combinations
 import numpy as np
@@ -47,7 +49,7 @@ def bitmask_para_combo(mask: int, n: int) -> tuple[int, ...]:
     """Converte um bitmask de volta para a tupla ordenada de elementos."""
     return tuple(i + 1 for i in range(n) if (mask >> i) & 1)
 
-def gerar_bitmasks(p: int, universe: tuple[int, ...] = C.UNIVERSE) -> np.ndarray:
+def gerar_bitmasks(p: int, universe: tuple[int, ...]) -> np.ndarray:
     """Gera todas as combinações de tamanho p como array NumPy de bitmasks."""
     return np.fromiter(
         (combo_para_bitmask(c) for c in combinations(universe, p)),
@@ -76,19 +78,12 @@ def randomized_cover(
     sample_size: int = 5,
     max_iters: int | None = None,
     verbose: bool = False,
-    log_every: int = 1
+    log_every: int = 1,
+    seed: int | None = None,
+    worker_id: int | None = None
 ) -> RandomResult:
     """
     Executa a cobertura de forma randomizada (GRASP-lite).
-    
-    Args:
-        p: tamanho dos alvos (ex: 14, 13, 12, 11).
-        k: tamanho dos blocos candidatos (15).
-        universe: universo de elementos (1 a 25).
-        sample_size: quantos candidatos avaliar por alvo sorteado (controla a aleatoriedade).
-        max_iters: limite de iterações (para testes rápidos). Passar None roda até o fim.
-        verbose: se True, imprime log no estilo do seu console.
-        log_every: de quantos em quantos passos imprime o log.
     """
     n = len(universe)
     t0 = time.perf_counter()
@@ -96,15 +91,18 @@ def randomized_cover(
     targets = gerar_bitmasks(p, universe)
     n_targets = len(targets)
     
+    # Prefixo para identificar qual núcleo está printando
+    prefix = f"[Worker {worker_id}]" if worker_id is not None else ""
+    
     if verbose:
-        print(f"  alvos S_{p} gerados: {n_targets:,} em {time.perf_counter()-t0:.1f}s")
-        print(f"  estratégia: Randômica com amostra de {sample_size} candidato(s) por iteração")
+        print(f"{prefix}  alvos S_{p} gerados: {n_targets:,} em {time.perf_counter()-t0:.1f}s")
+        print(f"{prefix}  estratégia: Randômica com amostra de {sample_size} candidato(s) por iteração")
 
     covered = np.zeros(n_targets, dtype=bool)
     chosen_masks: list[int] = []
     gains: list[int] = []
 
-    rng = np.random.default_rng()
+    rng = np.random.default_rng(seed)
     t_inicio = time.perf_counter()
     passo = 0
 
@@ -113,19 +111,15 @@ def randomized_cover(
         if max_iters is not None and passo > max_iters:
             break
 
-        # 1. Sorteia um alvo ainda não coberto
         idx_nao_cobertos = np.flatnonzero(~covered)
         alvo_idx = rng.choice(idx_nao_cobertos)
         alvo_mask = int(targets[alvo_idx])
 
-        # 2. Gera candidatos válidos que contêm esse alvo exato
         cand_masks = gerar_candidatos_por_alvo(alvo_mask, k, p, universe)
 
-        # 3. Sorteia uma amostra dos candidatos
         if sample_size > 0 and sample_size < len(cand_masks):
             cand_masks = rng.choice(cand_masks, size=sample_size, replace=False)
 
-        # 4. Avalia a amostra usando vetorização veloz do NumPy
         targets_und = targets[idx_nao_cobertos]
         melhor_gain = -1
         melhor_mask = -1
@@ -133,7 +127,6 @@ def randomized_cover(
 
         for cand_mask in cand_masks:
             cand_mask_int = np.uint32(cand_mask)
-            # O alvo é coberto se (alvo AND NOT candidato) for 0
             cobre = (targets_und & ~cand_mask_int) == 0
             gain = int(cobre.sum())
             
@@ -142,15 +135,15 @@ def randomized_cover(
                 melhor_mask = int(cand_mask)
                 melhor_cobertura = cobre
 
-        # 5. Registra o vencedor da amostra e aplica a cobertura
         covered[idx_nao_cobertos] |= melhor_cobertura
         chosen_masks.append(melhor_mask)
         gains.append(melhor_gain)
 
+        # Print original restaurado (com o prefixo do Worker)
         if verbose and (passo % log_every == 0 or covered.all()):
             elapsed = time.perf_counter() - t_inicio
             print(
-                f"  passo {passo:>6}: + {melhor_gain:>2} alvos | "
+                f"{prefix}  passo {passo:>6}: + {melhor_gain:>2} alvos | "
                 f"{int(covered.sum()):>9,}/{n_targets:,} cobertos | "
                 f"{elapsed:>7.1f}s decorridos"
             )
@@ -168,19 +161,45 @@ def randomized_cover(
 
 
 if __name__ == "__main__":
-    print("=== Execução Completa do Algoritmo Randômico (n=25, k=15, p=14) ===")
+    print("=== Execução Paralela do Algoritmo Randômico (n=25, k=15, p=14) ===")
     
-    # max_iters=None e log_every=1 para rodar até o fim mostrando todos os passos
-    resultado = randomized_cover(
-        p=14, 
-        k=15, 
-        sample_size=3,    # Avalia 3 candidatos randômicos por iteração
-        verbose=True, 
-        log_every=1       # Log passo a passo reativado
-    )
+    P_ALVO = 14
+    EXECUCOES_TOTAIS = 10
+    WORKERS = os.cpu_count() or 4
     
+    print(f"Iniciando {EXECUCOES_TOTAIS} execuções em {WORKERS} processos...\n")
+    
+    t_inicio_global = time.perf_counter()
+    melhor_resultado = None
+
+    with concurrent.futures.ProcessPoolExecutor(max_workers=WORKERS) as executor:
+        futures = []
+        
+        for i in range(EXECUCOES_TOTAIS):
+            future = executor.submit(
+                randomized_cover,
+                p=P_ALVO,
+                sample_size=3,
+                verbose=True,       # Logs internos religados!
+                log_every=1,
+                seed=42 + i,
+                worker_id=i + 1     # Identifica de qual processo vem o log
+            )
+            futures.append(future)
+
+        # Apenas monitora o término para pegar a melhor solução
+        for future in concurrent.futures.as_completed(futures):
+            res = future.result()
+            if melhor_resultado is None or res.size < melhor_resultado.size:
+                melhor_resultado = res
+
+    t_total_global = time.perf_counter() - t_inicio_global
+    
+    # Bloco final de prints idêntico à sua versão original
     print(f"\nCobertura finalizada!")
-    print(f"Tamanho do conjunto escolhido (SB): {resultado.size:,} combinações")
-    print(f"Tempo total: {resultado.elapsed_s:.1f} segundos")
-    if resultado.size > 0:
-        print(f"Ritmo médio global: {resultado.elapsed_s/resultado.size:.3f} s/iteração")
+    if melhor_resultado is not None:
+        print(f"Tamanho do conjunto escolhido (SB): {melhor_resultado.size:,} combinações")
+        print(f"Tempo total (Bateria completa): {t_total_global:.1f} segundos")
+        print(f"Tempo da melhor execução isolada: {melhor_resultado.elapsed_s:.1f} segundos")
+        if melhor_resultado.size > 0:
+            print(f"Ritmo médio global da melhor: {melhor_resultado.elapsed_s/melhor_resultado.size:.3f} s/iteração")
