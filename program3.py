@@ -39,6 +39,7 @@ from math import ceil
 
 from combinatorics import N, count_formula
 from dataset_io import read_combinations_csv, csv_exists
+from logging_utils import write_result_log
 
 ANCHOR: int = N  # elemento fixo (25)
 P: int = 13
@@ -119,6 +120,24 @@ def main() -> None:
     print(f"  alvos verificados: {verificados:,}")
     print(f"  alvos não cobertos: {faltando:,}")
     print(f"  cobertura completa: {status}   (tempo {t_verify:.2f}s)")
+
+    # Grava o log de resultados
+    log_path = write_result_log(
+        program_number=3,
+        p=P,
+        cover=COVER,
+        anchor=ANCHOR,
+        n_targets=expected_targets,
+        sb_size=sb_count,
+        optimal_or_bound=lb,
+        bound_label="limite inf. (Schönheim)",
+        coverage_ok=ok,
+        targets_checked=verificados,
+        targets_uncovered=faltando,
+        build_time_s=t_build,
+        verify_time_s=t_verify,
+    )
+    print(f"\nLog de resultados gravado em: {log_path}")
 
 
 if __name__ == "__main__":
