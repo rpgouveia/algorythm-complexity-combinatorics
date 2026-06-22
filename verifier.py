@@ -22,10 +22,10 @@ import numpy as np
 import combinatorics as C
 from bitmask import combo_to_bitmask, bitmask_to_combo, generate_bitmasks
 
-
 # ---------------------------------------------------------------------------
 # Verification result
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class VerificationResult:
@@ -58,6 +58,7 @@ class VerificationResult:
 # ---------------------------------------------------------------------------
 # Generic verification
 # ---------------------------------------------------------------------------
+
 
 def verify(
     chosen,
@@ -112,8 +113,7 @@ def verify(
     if not ok:
         idx_missing = np.flatnonzero(~covered)
         missing = [
-            bitmask_to_combo(int(targets[i]), n)
-            for i in idx_missing[:missing_sample]
+            bitmask_to_combo(int(targets[i]), n) for i in idx_missing[:missing_sample]
         ]
 
     elapsed = time.perf_counter() - t0
@@ -147,7 +147,7 @@ def print_report(res: VerificationResult) -> None:
 
 
 if __name__ == "__main__":
-    from Random import randomized_cover
+    from random import randomized_cover
 
     # SMALL instance (reduced universe) just so the demo runs instantly:
     # U = {1..8}, blocks of 5, targets of 3 → |S_3| = C(8,3) = 56.
@@ -155,11 +155,15 @@ if __name__ == "__main__":
     K = 5
     P = 3
 
-    print(f"=== Demo: verifica a solução do randômico em instância pequena "
-          f"(U={{1..{len(U)}}}, k={K}, p={P}) ===\n")
+    print(
+        f"=== Demo: verifica a solução do randômico em instância pequena "
+        f"(U={{1..{len(U)}}}, k={K}, p={P}) ===\n"
+    )
     result = randomized_cover(p=P, k=K, universe=U, sample_size=3, verbose=False)
-    print(f"Randômico terminou: |SB| = {result.size:,} blocos "
-          f"em {result.elapsed_s:.3f}s\n")
+    print(
+        f"Randômico terminou: |SB| = {result.size:,} blocos "
+        f"em {result.elapsed_s:.3f}s\n"
+    )
 
     res = verify(result, universe=U)
     print_report(res)
