@@ -60,32 +60,9 @@ import multiprocessing as mp
 import numpy as np
 
 import combinatorics as C
+from bitmask import combo_to_bitmask, bitmask_to_combo, generate_bitmasks
 from coverage_greedy import GreedyResult
-
-
-# ---------------------------------------------------------------------------
-# Conversão entre tuplas e bitmask
-# ---------------------------------------------------------------------------
-
-def combo_para_bitmask(combo: tuple[int, ...]) -> int:
-    """Converte uma tupla de elementos (1..N) em um inteiro bitmask."""
-    mask = 0
-    for x in combo:
-        mask |= (1 << (x - 1))
-    return mask
-
-
-def bitmask_para_combo(mask: int, n: int) -> tuple[int, ...]:
-    """Converte um bitmask de volta para a tupla ordenada de elementos."""
-    return tuple(i + 1 for i in range(n) if (mask >> i) & 1)
-
-
-def gerar_bitmasks(p: int, universe: tuple[int, ...] = C.UNIVERSE) -> np.ndarray:
-    """Gera todas as combinações de tamanho p como array NumPy de bitmasks (uint32)."""
-    return np.fromiter(
-        (combo_para_bitmask(c) for c in combinations(universe, p)),
-        dtype=np.uint32,
-    )
+from verifier import verify, print_report
 
 
 def _candidatos_bitmask_que_contem(
@@ -156,7 +133,7 @@ def greedy_cover_bitmask_paralelo(
     n_workers = n_workers or mp.cpu_count()
 
     t0 = time.perf_counter()
-    targets = gerar_bitmasks(p, universe)
+    targets = generate_bitmasks(p, universe)
     n_targets = len(targets)
     if verbose:
         print(f"  alvos S_{p} gerados: {n_targets:,} em {time.perf_counter()-t0:.1f}s")
@@ -233,7 +210,7 @@ def greedy_cover_bitmask_paralelo(
         shm.unlink()
 
     elapsed = time.perf_counter() - t_inicio
-    chosen_combos = [bitmask_para_combo(m, n) for m in chosen]
+    chosen_combos = [bitmask_to_combo(m, n) for m in chosen]
 
     return GreedyResult(
         p=p,
@@ -286,3 +263,6 @@ if __name__ == "__main__":
     print(f"\nApós {r2.size} passo(s): tempo {r2.elapsed_s:.1f}s decorridos")
     if r2.size:
         print(f"Ritmo médio: {r2.elapsed_s/r2.size:.2f}s/iteração")
+
+    print()
+    print_report(verify(r2))

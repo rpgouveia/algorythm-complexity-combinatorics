@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 from itertools import combinations
 import numpy as np
 import combinatorics as C
+from bitmask import combo_to_bitmask, bitmask_to_combo, generate_bitmasks
 
 
 # Estrutura de Dados
@@ -36,25 +37,7 @@ class RandomResult:
     def size(self) -> int:
         return len(self.chosen)
 
-# Funções de Bitmask
-
-def combo_para_bitmask(combo: tuple[int, ...]) -> int:
-    """Converte uma tupla de elementos (1..N) em um inteiro bitmask (uint32)."""
-    mask = 0
-    for x in combo:
-        mask |= (1 << (x - 1))
-    return mask
-
-def bitmask_para_combo(mask: int, n: int) -> tuple[int, ...]:
-    """Converte um bitmask de volta para a tupla ordenada de elementos."""
-    return tuple(i + 1 for i in range(n) if (mask >> i) & 1)
-
-def gerar_bitmasks(p: int, universe: tuple[int, ...]) -> np.ndarray:
-    """Gera todas as combinações de tamanho p como array NumPy de bitmasks."""
-    return np.fromiter(
-        (combo_para_bitmask(c) for c in combinations(universe, p)),
-        dtype=np.uint32,
-    )
+# Geração de candidatos (bitmask)
 
 def gerar_candidatos_por_alvo(alvo_mask: int, k: int, alvo_size: int, universe: tuple[int, ...]) -> np.ndarray:
     """Gera todos os blocos de tamanho k que contêm o alvo_mask."""
@@ -88,7 +71,7 @@ def randomized_cover(
     n = len(universe)
     t0 = time.perf_counter()
     
-    targets = gerar_bitmasks(p, universe)
+    targets = generate_bitmasks(p, universe)
     n_targets = len(targets)
     
     # Prefixo para identificar qual núcleo está printando
@@ -149,7 +132,7 @@ def randomized_cover(
             )
 
     elapsed = time.perf_counter() - t_inicio
-    chosen_combos = [bitmask_para_combo(m, n) for m in chosen_masks]
+    chosen_combos = [bitmask_to_combo(m, n) for m in chosen_masks]
 
     return RandomResult(
         p=p,
