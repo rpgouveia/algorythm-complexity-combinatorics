@@ -3,7 +3,7 @@ PROGRAMA 4 — Cobertura de Combinações de 12 Elementos
 Versão final: estratégia BITWISE (bitmask) + geração de candidatos restrita ao
 alvo não-coberto + avaliação vetorizada com NumPy + PARALELISMO (multiprocessing).
 
-Resumo das otimizações aplicadas sobre a versão original (coverage_greedy.py):
+Resumo das otimizações aplicadas sobre a versão original (guloso ingênuo):
 
     (1) BITMASK em vez de matriz booleana (N, 25) por linha.
         Cada combinação de 25 elementos cabe num único uint32. Isso reduz a
@@ -56,13 +56,35 @@ from dataclasses import dataclass, field
 from itertools import combinations
 from multiprocessing import shared_memory
 import multiprocessing as mp
-
 import numpy as np
-
 import combinatorics as C
-from bitmask import combo_to_bitmask, bitmask_to_combo, generate_bitmasks
-from coverage_greedy import GreedyResult
+from bitmask import bitmask_to_combo, generate_bitmasks
 from verifier import verify, print_report
+
+
+@dataclass
+class GreedyResult:
+    """Resultado de uma execução do guloso para um dado ``p``."""
+
+    p: int
+    """Tamanho dos alvos cobertos (14, 13, 12 ou 11)."""
+
+    chosen: list[tuple[int, ...]]
+    """Combinações de 15 selecionadas (SB), como tuplas ordenadas."""
+
+    n_targets: int
+    """|S_p| — quantos alvos havia para cobrir."""
+
+    elapsed_s: float
+    """Tempo de execução do guloso, em segundos."""
+
+    gains: list[int] = field(default_factory=list)
+    """Ganho (alvos novos cobertos) de cada escolha, na ordem em que ocorreram."""
+
+    @property
+    def size(self) -> int:
+        """Tamanho de SB (número de combinações de 15 escolhidas)."""
+        return len(self.chosen)
 
 
 def _candidatos_bitmask_que_contem(
@@ -235,8 +257,8 @@ def _init_worker_dynamic_size(shm_name: str, dtype_str: str) -> None:
 
 
 def _avaliar_chunk_dynamic(cand_masks_chunk: np.ndarray, m: int) -> tuple[int, int]:
-    """Igual a _avaliar_chunk, mas lê apenas os m primeiros elementos do buffer
-    compartilhado (tamanho de alvos não-cobertos na iteração atual)."""
+    """Lê apenas os m primeiros elementos do buffer compartilhado (alvos não
+    cobertos na iteração atual) e devolve o melhor candidato do chunk."""
     dtype = _worker_state["dtype"]
     targets_und = np.ndarray((m,), dtype=dtype, buffer=_worker_state["shm_buf"])
 
