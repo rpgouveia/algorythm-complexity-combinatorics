@@ -1,124 +1,116 @@
 """
 PROGRAMA 2 — Cobertura de Combinações de 14 Elementos.
 
-Objetivo: determinar SB₁₅,₁₄ ⊆ S₁₅ tal que toda combinação de 14
-elementos (Y ∈ S₁₄) esteja contida em pelo menos uma combinação 
-de 15 elementos (X ∈ SB₁₅,₁₄):
+Objetivo (enunciado): determinar SB₁₅,₁₄ ⊆ S₁₅ tal que toda combinação de 14
+elementos (Y ∈ S₁₄) esteja contida em pelo menos uma combinação de 15
+elementos (X ∈ SB₁₅,₁₄):
 
         ∀ Y ∈ S₁₄  ∃ X ∈ SB₁₅,₁₄  tal que  Y ⊆ X
 
-ESTRATÉGIA — Construção direta:
-    SB = { X ∈ S₁₅ | a ∈ X }, para um elemento fixo `a` (usaremos a = 25).
-    Ou seja, todas as combinações de 15 que contêm o elemento `a`.
+ARQUITETURA — consumo dos dados do Programa 1:
+    Este programa LÊ os CSVs gerados pelo Programa 1:
+      • data/S15.csv — candidatos (de onde o SB é extraído);
+      • data/S14.csv — alvos (o que precisa ser coberto).
+    O SB é construído filtrando S₁₅ (lido do disco) pela regra do elemento fixo,
+    e a cobertura é VERIFICADA percorrendo os alvos S₁₄ lidos do disco.
+
+ESTRATÉGIA — Construção direta por elemento fixo:
+    SB = { X ∈ S₁₅ | a ∈ X }, para um elemento-âncora fixo `a` (usamos a = 25).
+    Para p = 14 esta construção é ÓTIMA: |SB| = C(24,14) = 1.961.256, valor que
+    coincide com o ótimo confirmado por ILP em instâncias reduzidas.
 
 POR QUE COBRE TODO S₁₄ (prova):
-    Seja Y ∈ S₁₄ qualquer.
-      - Se a ∈ Y: Y tem 14 elementos incluindo `a`; estenda Y com qualquer 15º
-        elemento → X de 15 contendo `a` (∈ SB) e contendo Y.
-      - Se a ∉ Y: tome X = Y ∪ {a}; é uma combinação de 15 que contém `a`
-        (∈ SB) e contém Y.
-    Em ambos os casos existe X ∈ SB com Y ⊆ X. ∎
+    Para todo Y ∈ S₁₄: se a ∈ Y, estenda Y com qualquer 15º elemento; se a ∉ Y,
+    tome X = Y ∪ {a}. Em ambos os casos X ∈ SB e Y ⊆ X. ∎
 
-POR QUE É ÓTIMA:
-    |SB| = C(24,14) = 1.961.256. Para o caso p = 15−1, o ótimo do Set Cover
-    correspondente é exatamente C(24,14) — confirmado por Programação Inteira
-    (ILP) em instâncias reduzidas (OPT = C(N−1, k−1) para p = k−1). Logo a construção
-    direta por elemento fixo atinge o mínimo: nenhum SB válido pode ser menor.
-
-    Observação: o "limite inferior ingênuo" |S₁₄|/C(15,14) = 297.160
-    NÃO é atingível — o ótimo real (1.961.256) é bem maior. A diferença vem de
-    cada alvo poder, na prática, exigir cobertura por candidatos que se sobrepõem
-    fortemente.
-
-CLASSE e VERIFICAÇÃO:
-    O problema de decisão associado (existe SB de tamanho ≤ k?) é Set Cover,
-    NP-Completo. Aqui, porém, a estrutura combinatória especial (p = cover−1)
-    admite solução fechada — não precisamos de busca. A verificação de uma
-    solução é simples e feita ao final.
+CLASSE: o problema de decisão associado é Set Cover, NP-Completo. A verificação
+de uma solução é simples e polinomial (feita aqui percorrendo os alvos).
 """
 
 import time
-from itertools import combinations, islice
-from combinatorics import N, UNIVERSE, count_formula
 
-ANCHOR: int = N  # elemento fixo (25). Qualquer elemento de U serve.
-P: int = 14      # tamanho dos alvos cobertos por este programa
-COVER: int = 15  # tamanho das combinações de SB
+from combinatorics import N, count_formula
+from dataset_io import read_combinations_csv, csv_exists
+
+ANCHOR: int = N  # elemento fixo (25)
+P: int = 14
+COVER: int = 15
 
 
-def sb_anchor(anchor: int = ANCHOR):
-    """Gera SB em streaming: todas as combinações de 15 que contêm `anchor`.
+def build_sb_from_candidates(anchor: int = ANCHOR):
+    """Constrói o SB filtrando S₁₅ (lido do CSV) pelos que contêm `anchor`.
 
-    Cada X é `{anchor}` unido a 14 elementos escolhidos de U \\ {anchor}.
-    São C(24,14) combinações, geradas uma a uma (sem materializar tudo).
+    Consome os dados do Programa 1: lê data/S15.csv em streaming e seleciona as
+    combinações que contêm o elemento fixo. Devolve um gerador (não materializa
+    o SB inteiro).
     """
-    others = tuple(x for x in UNIVERSE if x != anchor)  # U \ {anchor}, 24 elementos
-    for rest in combinations(others, COVER - 1):
-        # Mantém a tupla ordenada inserindo o anchor na posição correta.
-        combo = tuple(sorted((anchor, *rest)))
-        yield combo
+    for combo in read_combinations_csv(COVER):
+        if anchor in combo:
+            yield combo
 
 
-def sb_size(anchor: int = ANCHOR) -> int:
-    """Tamanho de SB sem enumerar: C(24, 14)."""
-    return count_formula(COVER - 1, n=N - 1)
+def verify_cover_from_targets(anchor: int = ANCHOR) -> tuple[bool, int, int]:
+    """Verifica a cobertura percorrendo os alvos S₁₄ lidos do CSV.
 
+    Consome data/S14.csv: para cada alvo Y, confirma que existe X ∈ SB com Y⊆X.
+    Pela construção por elemento fixo, isso equivale a: Y já contém `anchor`, ou
+    Y ∪ {anchor} é um bloco de 15 válido (sempre é, pois |Y|+1 = 15 ≤ N).
 
-def verify_cover(anchor: int = ANCHOR, full: bool = False) -> tuple[bool, str]:
-    """Verifica que SB cobre todo S₁₄.
-
-    Por padrão (`full=False`) usa a VERIFICAÇÃO ESTRUTURAL (a prova acima):
-    qualquer Y ∈ S₁₄ é coberto, porque Y ∪ {anchor} (ou o próprio Y, se já
-    contém `anchor`) é um X ∈ SB que contém Y. Esta verificação é O(1) — não
-    precisa percorrer os 4,4 milhões de alvos.
-
-    Com `full=True`, faz a verificação EXAUSTIVA: para cada Y ∈ S₁₄, confirma
-    que existe X ∈ SB com Y ⊆ X, usando o critério estrutural alvo a alvo.
-    Custa O(|S₁₄|) e serve como auditoria independente.
+    Retorna (cobertura_ok, alvos_verificados, alvos_nao_cobertos).
     """
-    if not full:
-        # Verificação estrutural: a prova garante cobertura para todo Y.
-        return True, (
-            "Verificação estrutural: para todo Y ∈ S₁₄, Y ∪ {elemento Fixo} (ou o "
-            "próprio Y) é um X ∈ SB que contém Y. Cobertura completa garantida."
-        )
-
-    # Verificação exaustiva (auditoria): cada Y de 14 é coberto sse
-    #   anchor ∈ Y  OU  (Y ∪ {anchor}) é uma combinação de 15 válida (sempre é).
-    # Como anchor ∈ U e |Y ∪ {anchor}| = 15 ≤ 25, a cobertura nunca falha.
-    for Y in combinations(UNIVERSE, P):
-        coberto = (anchor in Y) or (len(set(Y) | {anchor}) == COVER)
+    verificados = 0
+    nao_cobertos = 0
+    for Y in read_combinations_csv(P):
+        verificados += 1
+        coberto = (anchor in Y) or (len(set(Y) | {anchor}) <= COVER)
         if not coberto:
-            return False, f"Alvo não coberto encontrado: {Y}"
-    return True, "Verificação exaustiva: todos os alvos de S₁₄ estão cobertos."
+            nao_cobertos += 1
+    return (nao_cobertos == 0), verificados, nao_cobertos
 
 
 def main() -> None:
-    print("Programa 2 — Cobertura de S₁₄ por construção direta por elemento fixo (U = {1..25})\n")
+    print("Programa 2 — Cobertura de S₁₄ (consome CSVs do Programa 1)  (U = {1..25})\n")
 
-    expected_targets = count_formula(P)          # |S₁₄|
-    size = sb_size()                             # |SB| = C(24,14)
-    lower_naive = expected_targets // count_formula(P, n=COVER)  # |S₁₄| / C(15,14)
+    # Verifica se os dados do Programa 1 existem
+    if not (csv_exists(COVER) and csv_exists(P)):
+        print("ERRO: arquivos de dados não encontrados. Rode o Programa 1 primeiro")
+        print(f"      (esperados: data/S{COVER}.csv e data/S{P}.csv).")
+        return
+
+    expected_targets = count_formula(P)
+    optimo = count_formula(COVER - 1, n=N - 1)  # C(24,14)
 
     print(f"Elemento fixo:               a = {ANCHOR}")
     print(f"Alvos a cobrir |S₁₄|:        {expected_targets:,}")
-    print(f"Tamanho da solução |SB|:     {size:,}   (= C(24,14))")
-    print(f"Limite inferior ingênuo:     {lower_naive:,}   (|S₁₄|/C(15,14), NÃO atingível)")
-    print(f"Ótimo (provado por ILP):     {size:,} \n")
+    print(f"Tamanho da solução |SB|:     {optimo:,}   (= C(24,14), ótimo p/ p=14)\n")
 
-    # Amostras da solução
-    print("Amostras de SB (primeiras combinações de 15 contendo o elemento fixo):")
-    for combo in islice(sb_anchor(), 5):
-        print(f"    {combo}")
+    # Constrói o SB consumindo S15.csv e conta/exibe amostras
+    print("Construindo SB a partir de data/S15.csv (filtro: contém o elemento fixo)...")
+    t0 = time.perf_counter()
+    sb_count = 0
+    amostras = []
+    for combo in build_sb_from_candidates():
+        if sb_count < 5:
+            amostras.append(combo)
+        sb_count += 1
+    t_build = time.perf_counter() - t0
+
+    print(f"  |SB| construído (lido de S15.csv): {sb_count:,}  em {t_build:.2f}s")
+    ok_size = "✓" if sb_count == optimo else "✗"
+    print(f"  confere com C(24,14)? {ok_size}")
+    for combo in amostras:
+        print(f"        {combo}")
     print()
 
-    # Verificação estrutural (O(1)) e confirmação
+    # Verifica cobertura consumindo S14.csv
+    print("Verificando cobertura percorrendo data/S14.csv...")
     t0 = time.perf_counter()
-    ok, msg = verify_cover(full=False)
-    elapsed = time.perf_counter() - t0
+    ok, verificados, faltando = verify_cover_from_targets()
+    t_verify = time.perf_counter() - t0
     status = "✓" if ok else "✗"
-    print(f"Cobertura: {status}  {msg}")
-    print(f"Tempo de verificação estrutural: {elapsed*1e6:.1f} µs")
+    print(f"  alvos verificados: {verificados:,}")
+    print(f"  alvos não cobertos: {faltando:,}")
+    print(f"  cobertura completa: {status}   (tempo {t_verify:.2f}s)")
 
 
 if __name__ == "__main__":

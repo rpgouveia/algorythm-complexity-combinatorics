@@ -1,21 +1,33 @@
 """
-Gera integralmente os conjuntos S₁₅, S₁₄, S₁₃, S₁₂ e S₁₁ do universo U = {1..25}
-e imprime um relatório: cardinalidade obtida vs. esperada, amostras e tempo.
+PROGRAMA 1 — Geração das Combinações.
 
-A geração é feita em STREAMING (uma combinação por vez): materializar os cinco
-conjuntos simultaneamente como tuplas custaria ~3,6 GB de memória.
+Gera integralmente os conjuntos S₁₅, S₁₄, S₁₃, S₁₂ e S₁₁ do universo U = {1..25}
+e os PERSISTE em disco (CSV, um por conjunto), para que os Programas 2 a 5 os
+consumam. Imprime um relatório: cardinalidade obtida vs. esperada, amostras,
+tempo e caminho do arquivo.
+
+A geração é feita em STREAMING (uma combinação por vez): a combinação é escrita
+direto no CSV, sem materializar o conjunto inteiro em memória. Assim a memória
+usada é O(1); só o disco cresce (~1 GB no total dos cinco conjuntos).
+
+Papel na arquitetura: este é o ÚNICO programa que gera os dados. Os Programas
+2 a 5 leem os CSVs aqui produzidos (S₁₅ como candidatos; S_p como alvos) e
+operam sobre eles.
 """
 
 import time
-from itertools import islice
 
-from combinatorics import TARGET_SIZES, combinations_of_size, count_formula
+from combinatorics import TARGET_SIZES, count_formula
+from dataset_io import write_combinations_csv, sample_csv, DATA_DIR
 
 SAMPLES = 5  # quantas combinações iniciais exibir por conjunto
 
+
 def main() -> None:
-    print("Programa 1 — Geração das Combinações  (U = {1..25})\n")
-    header = f"{'p':>3} | {'esperado':>12} | {'obtido':>12} | {'ok':>3} | {'tempo (s)':>10}"
+    print("Programa 1 — Geração das Combinações  (U = {1..25})")
+    print(f"Os conjuntos serão gravados em CSV no diretório '{DATA_DIR}/'.\n")
+
+    header = f"{'p':>3} | {'esperado':>12} | {'obtido':>12} | {'ok':>3} | {'tempo (s)':>10} | arquivo"
     print(header)
     print("-" * len(header))
 
@@ -24,34 +36,22 @@ def main() -> None:
 
     for p in TARGET_SIZES:
         expected = count_formula(p)
-        gen = combinations_of_size(p)
 
-        # Percorre todo o conjunto contando (prova que a geração é íntegra),
-        # guardando apenas as primeiras amostras e a última combinação.
-        #
-        # IMPORTANTE: 'islice' consome as SAMPLES primeiras combinações de 'gen'
-        # e o 'for' abaixo prossegue de onde 'islice' parou — geradores mantêm a
-        # posição. A corretude depende de ser o MESMO objeto 'gen' nas duas
-        # etapas; não recrie o gerador entre elas, ou as amostras seriam
-        # recontadas.
+        # Gera em streaming E grava no CSV ao mesmo tempo. A contagem retornada
+        # prova que a geração é íntegra (deve bater com C(25, p)).
         t0 = time.perf_counter()
-        first_samples = list(islice(gen, SAMPLES))
-        count = len(first_samples)
-        last = first_samples[-1] if first_samples else None
-        for combo in gen:
-            last = combo
-            count += 1
+        count, path = write_combinations_csv(p)
         elapsed = time.perf_counter() - t0
 
         grand_total += count
         ok = "✓" if count == expected else "✗"
-        print(f"{p:>3} | {expected:>12,} | {count:>12,} | {ok:>3} | {elapsed:>10.3f}")
+        print(f"{p:>3} | {expected:>12,} | {count:>12,} | {ok:>3} | {elapsed:>10.3f} | {path}")
 
-        for combo in first_samples:
+        # Amostras lidas de volta do próprio CSV (confirma que o arquivo é legível).
+        for combo in sample_csv(p, SAMPLES):
             print(f"        {combo}")
-        if last is not None and count > SAMPLES:
-            print(f"        ... (mais {count - SAMPLES - 1:,} combinações até a última) ...")
-            print(f"        {last}")
+        if count > SAMPLES:
+            print(f"        ... (mais {count - SAMPLES:,} combinações no arquivo) ...")
         print()
 
     total_elapsed = time.perf_counter() - t_start
@@ -60,6 +60,7 @@ def main() -> None:
     print("-" * len(header))
     print(f"TOTAL: {grand_total:,} combinações (esperado {expected_total:,}) {ok_total}")
     print(f"Tempo total: {total_elapsed:.3f} s")
+    print(f"\nArquivos gravados em '{DATA_DIR}/'.")
 
 
 if __name__ == "__main__":

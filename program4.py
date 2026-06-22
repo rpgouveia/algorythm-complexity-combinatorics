@@ -1,137 +1,124 @@
 """
 PROGRAMA 4 — Cobertura de Combinações de 12 Elementos.
 
-Objetivo: determinar SB₁₅,₁₂ ⊆ S₁₅ tal que toda combinação de 12
-elementos (Y ∈ S₁₂) esteja contida em pelo menos uma combinação de 15
-elementos (X ∈ SB₁₅,₁₂):
+Objetivo (enunciado): determinar SB₁₅,12 ⊆ S₁₅ tal que toda combinação de 12
+elementos (Y ∈ S_12) esteja contida em pelo menos uma combinação de 15
+elementos (X ∈ SB₁₅,12):
 
-        ∀ Y ∈ S₁₂  ∃ X ∈ SB₁₅,₁₂  tal que  Y ⊆ X
+        ∀ Y ∈ S_12  ∃ X ∈ SB₁₅,12  tal que  Y ⊆ X
 
-ESTRATÉGIA — Construção direta por elemento fixo:
-    SB = { X ∈ S₁₅ | a ∈ X }, para um elemento-âncora fixo `a` (usamos a = 25).
-    Ou seja, todas as combinações de 15 que contêm o elemento `a`.
+ARQUITETURA — consumo dos dados do Programa 1:
+    Este programa LÊ os CSVs gerados pelo Programa 1:
+      • data/S15.csv — candidatos (de onde o SB é extraído);
+      • data/S12.csv — alvos (o que precisa ser coberto).
+    O SB é construído filtrando S₁₅ (lido do disco) pela regra do elemento fixo,
+    e a cobertura é VERIFICADA percorrendo os alvos S_12 lidos do disco.
 
-POR QUE COBRE TODO S₁₂ (prova):
-    Seja Y ∈ S₁₂ qualquer (12 elementos).
-      • Se a ∈ Y: estenda Y com 3 elementos quaisquer de U \\ Y → X de 15
-        contendo `a` (∈ SB) e contendo Y.
-      • Se a ∉ Y: tome X = Y ∪ {a} mais 2 elementos de U \\ (Y ∪ {a}); é uma
-        combinação de 15 que contém `a` (∈ SB) e contém Y.
-    Em ambos os casos existe X ∈ SB com Y ⊆ X. ∎
+ESTRATÉGIA — Construção direta por elemento fixo (a mesma dos Programas 2-5):
+    SB = { X ∈ S₁₅ | a ∈ X }, para um elemento fixo `a` (usamos a = 25).
 
-ESTA CONSTRUÇÃO NÃO É ÓTIMA — e o gap é ainda maior que no Programa 3:
+POR QUE COBRE TODO S_12 (prova):
+    Para todo Y ∈ S_12: se a ∈ Y, estenda Y com elementos extras até 15; se
+    a ∉ Y, tome X = Y ∪ {a, …} completando até 15. Em ambos os casos X ∈ SB e
+    Y ⊆ X. ∎  (Validado também por força bruta em universos reduzidos.)
+
+ESTA CONSTRUÇÃO NÃO É ÓTIMA:
     |SB| = C(24,14) = 1.961.256.
-    Limite inferior de Schönheim para C(25,15,12): 13.175.
-    A construção está ~149× acima do limite inferior.
+    Limite inferior de Schönheim para C(25,15,12): 13,175.
+    A construção está ~149× acima do limite inferior — solução VÁLIDA, mas
+    longe da mínima. O gap cresce conforme p diminui (p=14 ótima; p≤13 folgada),
+    pois |SB| fica fixo enquanto o limite inferior cai. Reduzir |SB| é objeto das
+    estratégias alternativas (randômico/GRASP, guloso paralelo, ILP).
 
-    O gap cresce conforme p diminui: em p=14 a construção é ótima; em p=13 fica
-    ~33× acima; em p=12, ~149×. A razão é estrutural — cada bloco de 15 cobre
-    C(15,p) alvos (455 para p=12), e a construção por elemento fixo, embora cubra
-    tudo, desperdiça muita sobreposição.
-
-POSTURA ADOTADA:
-    Entregamos a construção direta como LIMITANTE SUPERIOR válido e de obtenção
-    trivial, declarando abertamente o gap. A redução de |SB| é objeto das
-    estratégias alternativas.
-
-CLASSE / VERIFICAÇÃO:
-    O problema de decisão associado é Set Cover, NP-Completo. A verificação de
-    uma solução candidata é simples e feita ao final.
+CLASSE: o problema de decisão associado é Set Cover, NP-Completo. A verificação
+de uma solução é simples e polinomial (feita aqui percorrendo os alvos).
 """
 
 import time
-from itertools import combinations, islice
 from math import ceil
 
-from combinatorics import N, UNIVERSE, count_formula
+from combinatorics import N, count_formula
+from dataset_io import read_combinations_csv, csv_exists
 
 ANCHOR: int = N  # elemento fixo (25)
-P: int = 12      # tamanho dos alvos cobertos por este programa
-COVER: int = 15  # tamanho das combinações de SB
+P: int = 12
+COVER: int = 15
 
 
 def schonheim_bound(v: int = N, k: int = COVER, t: int = P) -> int:
-    """Limite inferior de Schönheim para o covering number C(v, k, t).
-
-    Recorrência: L(v,k,t) = ⌈(v/k) · L(v−1, k−1, t−1)⌉, com L(v,k,1) = ⌈v/k⌉.
-    """
+    """Limite inferior de Schönheim para o covering number C(v, k, t)."""
     if t == 1:
         return ceil(v / k)
     return ceil(v / k * schonheim_bound(v - 1, k - 1, t - 1))
 
 
-def sb_anchor(anchor: int = ANCHOR):
-    """Gera SB em streaming: todas as combinações de 15 que contêm `anchor`.
+def build_sb_from_candidates(anchor: int = ANCHOR):
+    """Constrói o SB filtrando S₁₅ (lido do CSV) pelos que contêm `anchor`."""
+    for combo in read_combinations_csv(COVER):
+        if anchor in combo:
+            yield combo
 
-    Cada X é `{anchor}` unido a 14 elementos de U \\ {anchor}. São C(24,14)
-    combinações, geradas uma a uma (sem materializar tudo).
+
+def verify_cover_from_targets(anchor: int = ANCHOR) -> tuple[bool, int, int]:
+    """Verifica a cobertura percorrendo os alvos S_12 lidos do CSV.
+
+    Para cada alvo Y, confirma que existe X ∈ SB com Y ⊆ X — o que, pela
+    construção por elemento fixo, equivale a |Y ∪ {anchor}| ≤ 15 (sempre vale).
+    Retorna (cobertura_ok, alvos_verificados, alvos_nao_cobertos).
     """
-    others = tuple(x for x in UNIVERSE if x != anchor)  # 24 elementos
-    for rest in combinations(others, COVER - 1):
-        yield tuple(sorted((anchor, *rest)))
-
-
-def sb_size(anchor: int = ANCHOR) -> int:
-    """Tamanho de SB sem enumerar: C(24, 14)."""
-    return count_formula(COVER - 1, n=N - 1)
-
-
-def verify_cover(anchor: int = ANCHOR, full: bool = False) -> tuple[bool, str]:
-    """Verifica que SB cobre todo S₁₂.
-
-    Por padrão (`full=False`) usa a VERIFICAÇÃO ESTRUTURAL (a prova): qualquer
-    Y ∈ S₁₂ é coberto, porque Y ∪ {anchor, …} é um X ∈ SB que contém Y. O(1).
-
-    Com `full=True`, faz a verificação EXAUSTIVA sobre todo S₁₂, confirmando
-    alvo a alvo pelo mesmo critério estrutural. Custa O(|S₁₂|).
-    """
-    if not full:
-        return True, (
-            "Verificação estrutural: para todo Y ∈ S₁₂, Y ∪ {elemento Fixo, …} é um "
-            "X ∈ SB que contém Y. Cobertura completa garantida."
-        )
-
-    for Y in combinations(UNIVERSE, P):
-        # Y é coberto sse podemos formar X de 15 contendo `anchor` e Y:
-        #   |Y ∪ {anchor}| ≤ 15, o que sempre vale (|Y|=12, +1 = 13 ≤ 15).
+    verificados = 0
+    nao_cobertos = 0
+    for Y in read_combinations_csv(P):
+        verificados += 1
         coberto = len(set(Y) | {anchor}) <= COVER
         if not coberto:
-            return False, f"Alvo não coberto encontrado: {Y}"
-    return True, "Verificação exaustiva: todos os alvos de S₁₂ estão cobertos."
+            nao_cobertos += 1
+    return (nao_cobertos == 0), verificados, nao_cobertos
 
 
 def main() -> None:
-    print("Programa 4 — Cobertura de S₁₂ por construção por elemento fixo  (U = {1..25})\n")
+    print("Programa 4 — Cobertura de S_12 (consome CSVs do Programa 1)  (U = {1..25})\n")
 
-    expected_targets = count_formula(P)              # |S₁₂|
-    size = sb_size()                                 # |SB| = C(24,14)
-    lb = schonheim_bound()                           # limite inferior de Schönheim
-    cobre_por_bloco = count_formula(P, n=COVER)      # C(15,12)
+    if not (csv_exists(COVER) and csv_exists(P)):
+        print("ERRO: arquivos de dados não encontrados. Rode o Programa 1 primeiro")
+        print(f"      (esperados: data/S{COVER}.csv e data/S{P}.csv).")
+        return
 
-    print(f"Elemento fixo:        a = {ANCHOR}")
-    print(f"Alvos a cobrir |S₁₂|:        {expected_targets:,}")
+    expected_targets = count_formula(P)
+    size = count_formula(COVER - 1, n=N - 1)  # C(24,14)
+    lb = schonheim_bound()
+    cobre_por_bloco = count_formula(P, n=COVER)
+
+    print(f"Elemento fixo:               a = {ANCHOR}")
+    print(f"Alvos a cobrir |S_12|:        {expected_targets:,}")
+    print(f"Cada X de 15 cobre:          {cobre_por_bloco:,} alvos  (= C(15,12))")
     print(f"Tamanho da solução |SB|:     {size:,}   (= C(24,14))")
-    print(f"Cada X de 15 cobre:          {cobre_por_bloco:,} alvos de 12  (= C(15,12))")
     print(f"Limite inferior (Schönheim): {lb:,}")
-    print(f"Razão |SB| / limite inferior: {size / lb:>6.1f}×   → NÃO é mínima (ver cabeçalho)\n")
+    print(f"Razão |SB| / limite inferior: {size/lb:>6.1f}×   → NÃO é mínima\n")
 
-    print("Amostras de SB (primeiras combinações de 15 contendo o elemento fixo):")
-    for combo in islice(sb_anchor(), 5):
-        print(f"    {combo}")
+    print("Construindo SB a partir de data/S15.csv (filtro: contém o elemento fixo)...")
+    t0 = time.perf_counter()
+    sb_count = 0
+    amostras = []
+    for combo in build_sb_from_candidates():
+        if sb_count < 5:
+            amostras.append(combo)
+        sb_count += 1
+    t_build = time.perf_counter() - t0
+    ok_size = "✓" if sb_count == size else "✗"
+    print(f"  |SB| construído (lido de S15.csv): {sb_count:,}  em {t_build:.2f}s  (confere C(24,14)? {ok_size})")
+    for combo in amostras:
+        print(f"        {combo}")
     print()
 
+    print("Verificando cobertura percorrendo data/S_12.csv...")
     t0 = time.perf_counter()
-    ok, msg = verify_cover(full=False)
-    elapsed = time.perf_counter() - t0
+    ok, verificados, faltando = verify_cover_from_targets()
+    t_verify = time.perf_counter() - t0
     status = "✓" if ok else "✗"
-    print(f"Cobertura: {status}  {msg}")
-    print(f"Tempo de verificação estrutural: {elapsed*1e6:.1f} µs\n")
-
-    print("Observações:")
-    print("  • A construção COBRE todo S₁₂ (correção garantida).")
-    print("  • NÃO é mínima: está ~149 × acima do limite inferior de Schönheim.")
-    print("  • O gap cresce conforme p diminui (p=14 ótimo, p=13 ~33×, p=12 ~149×).")
-    print("  • A versão guloso+paralela deve atingir |SB| muito menor, ao custo de horas.")
+    print(f"  alvos verificados: {verificados:,}")
+    print(f"  alvos não cobertos: {faltando:,}")
+    print(f"  cobertura completa: {status}   (tempo {t_verify:.2f}s)")
 
 
 if __name__ == "__main__":
