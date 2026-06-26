@@ -24,6 +24,7 @@ SAMPLES = 5  # quantas combinações iniciais exibir por conjunto
 
 
 def main() -> None:
+    """O(N^2)"""
     print("Programa 1 — Geração das Combinações  (U = {1..25})")
     print(f"Os conjuntos serão gravados em CSV no diretório '{DATA_DIR}/'.\n")
 

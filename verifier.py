@@ -78,6 +78,8 @@ def verify(
 
     Returns:
         VerificationResult with ok, counts and a sample of missing targets.
+    
+    N(n^2)
     """
     # Accept either the list of blocks or the result object.
     if hasattr(chosen, "chosen"):
@@ -130,6 +132,10 @@ def verify(
 
 
 def print_report(res: VerificationResult) -> None:
+    """Prints a human-readable report of the verification result.
+    
+    O(1)
+    """
     status = "✓" if res.ok else "✗"
     print(f"Verificação de cobertura S_{res.p}:")
     print(f"  Blocos em SB:        {res.n_blocks:,}")

@@ -41,6 +41,8 @@ def combinations_of_size(
 
     Raises:
         ValueError: se ``p`` estiver fora de [0, len(universe)].
+
+        O(1)
     """
     if not 0 <= p <= len(universe):
         raise ValueError(f"p deve estar em [0, {len(universe)}]; recebido p={p}.")
@@ -48,7 +50,10 @@ def combinations_of_size(
 
 
 def count_formula(p: int, n: int = N) -> int:
-    """Cardinalidade esperada |S_p| = C(n, p) = n! / (p! · (n-p)!)."""
+    """Cardinalidade esperada |S_p| = C(n, p) = n! / (p! · (n-p)!).
+    
+    O(1)
+    """
     return comb(n, p)
 
 
@@ -63,6 +68,8 @@ def materialize_matrix(p: int, universe: tuple[int, ...] = UNIVERSE) -> "np.ndar
     dependa de NumPy.
 
     ATENÇÃO de memória: ~25 bytes por combinação. |S_13| ≈ 5,2 M → ~130 MB.
+
+    O(1)
     """
     from representations import combos_to_matrix
 
@@ -78,5 +85,7 @@ def materialize(p: int) -> list[tuple[int, ...]]:
 
     Destina-se APENAS a testes com ``p`` pequeno e/ou universos reduzidos. Para
     os conjuntos do enunciado, use sempre ``combinations_of_size`` em streaming.
+    
+    O(C
     """
     return list(combinations_of_size(p))
